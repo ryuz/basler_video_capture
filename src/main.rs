@@ -13,11 +13,9 @@ fn main() -> anyhow::Result<()> {
     camera.node_map()?.integer_node("Height")?.set_value(height)?;
     camera.node_map()?.enum_node("PixelFormat")?.set_value("Mono8")?;
     camera.node_map()?.float_node("Gain")?.set_value(1.0)?;
-    camera.node_map()?.float_node("ExposureTime")?.set_value(900.0)?;
-
+    camera.node_map()?.float_node("ExposureTime")?.set_value(500.0)?;
 
     // camera.enum_node("PixelFormat")?.set_value("RGB8")?;
-
     // Start the grabbing of COUNT_IMAGES_TO_GRAB images.
     // The camera device is parameterized with a default configuration which
     // sets up free-running continuous acquisition.
