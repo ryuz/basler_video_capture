@@ -13,12 +13,8 @@ fn main() -> anyhow::Result<()> {
     camera.node_map()?.integer_node("Height")?.set_value(height)?;
     camera.node_map()?.enum_node("PixelFormat")?.set_value("Mono8")?;
     camera.node_map()?.float_node("Gain")?.set_value(1.0)?;
-    camera.node_map()?.float_node("ExposureTime")?.set_value(500.0)?;
+    camera.node_map()?.float_node("ExposureTime")?.set_value(700.0)?;   // 露光時間でフレームレートが変わる
 
-    // camera.enum_node("PixelFormat")?.set_value("RGB8")?;
-    // Start the grabbing of COUNT_IMAGES_TO_GRAB images.
-    // The camera device is parameterized with a default configuration which
-    // sets up free-running continuous acquisition.
     camera.start_grabbing(&pylon_cxx::GrabOptions::default().count(COUNT_IMAGES))?;
 
     match camera.node_map()?.enum_node("PixelFormat") {
@@ -35,10 +31,7 @@ fn main() -> anyhow::Result<()> {
     let mut img_buf = vec![vec![0u8; (width * height) as usize]; COUNT_IMAGES as usize];
     
 
-    // Camera.StopGrabbing() is called automatically by the RetrieveResult() method
-    // when c_countOfImagesToGrab images have been retrieved.
     while camera.is_grabbing() {
-        // Wait for an image and then retrieve it. A timeout of 5000 ms is used.
         camera.retrieve_result(
             5000,
             &mut grab_result,
@@ -48,23 +41,7 @@ fn main() -> anyhow::Result<()> {
         // Image grabbed successfully?
         if grab_result.grab_succeeded()? {
             // Access the image data.
-//            println!("SizeX: {}", grab_result.width()?);
-//           println!("SizeY: {}", grab_result.height()?);
-
             let image_buffer = grab_result.buffer()?;
-//          println!("Value of first pixel: {}\n", image_buffer[0]);
- 
-//          let w = grab_result.width()?;
-//          let h = grab_result.height()?;
-            /*
-            for y in 0..h {
-                for x in 0..w {
-                    let offset = (y * w + x) as usize;
-                    print!("{:3} ", image_buffer[offset]);
-                }
-                println!();
-            }*/
-
             for i in 0..width * height {
                 img_buf[img_count as usize][i as usize] = image_buffer[i as usize];
             }
@@ -78,7 +55,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    // 日時でフォルダを作る
+    // Save images to timestamped directory
     let now = chrono::Local::now();
     let dir_name = now.format("rec/%Y%m%d_%H%M%S").to_string();
     std::fs::create_dir_all(&dir_name)?;
@@ -90,7 +67,6 @@ fn main() -> anyhow::Result<()> {
         } else {
             println!("Saved {}", filename);
         }
-//      img_count = img_count.wrapping_add(1);
     }
 
     Ok(())
