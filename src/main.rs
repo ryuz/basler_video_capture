@@ -1,4 +1,4 @@
-const COUNT_IMAGES: u32 = 100;
+const COUNT_IMAGES: u32 = 1000;
 
 fn main() -> anyhow::Result<()> {
 
@@ -13,7 +13,7 @@ fn main() -> anyhow::Result<()> {
     camera.node_map()?.integer_node("Height")?.set_value(height)?;
     camera.node_map()?.enum_node("PixelFormat")?.set_value("Mono8")?;
     camera.node_map()?.float_node("Gain")?.set_value(1.0)?;
-    camera.node_map()?.float_node("ExposureTime")?.set_value(1000.0)?;
+    camera.node_map()?.float_node("ExposureTime")?.set_value(900.0)?;
 
 
     // camera.enum_node("PixelFormat")?.set_value("RGB8")?;
@@ -80,8 +80,13 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    // 日時でフォルダを作る
+    let now = chrono::Local::now();
+    let dir_name = now.format("rec/%Y%m%d_%H%M%S").to_string();
+    std::fs::create_dir_all(&dir_name)?;
+
     for img_count in 0..COUNT_IMAGES {
-        let filename = format!("rec/image_{:03}.pgm", img_count);
+        let filename = format!("{}/image_{:03}.pgm", dir_name, img_count);
         if let Err(e) = save_pgm_p2(&filename, width as usize, height as usize, 255u32, img_buf[img_count as usize].as_slice()) {
             eprintln!("Failed to save PGM {}: {}", filename, e);
         } else {
