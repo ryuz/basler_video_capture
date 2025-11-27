@@ -8,12 +8,15 @@ Basler社の acA640-750 を用いて 1000fps 撮影を試してみたビデオ�
 
 ## 動作環境
 
+Windows もしくは Linux 環境で動作します。 
+
+WSL2 では USB を認識させるのが面倒なので試していません。
 
 ### Pylon インストール
 
-Windows もしくは Linux 環境で動作します。 pylon 25.09.0 をインストールしてください。
+Busler社の[pylon Software Suite](https://www.baslerweb.com/ja-jp/software/pylon/)をダウンロードしてインストールしてください。
 
-WSL2 では USB を認識させるのが面倒なので試していません。
+本プログラムは pylon 25.09.0 で動作確認しています。
 
 USB3 に相性があるようですので、ポートを変えたり、PCを変えたり、USBボードを用意したりして安定する環境を探してください。
 
