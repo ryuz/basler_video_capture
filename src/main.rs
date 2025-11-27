@@ -94,33 +94,48 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn save_pgm_p2(path: &str, width: usize, height: usize, maxval: u32, data: &[u8]) -> std::io::Result<()> {
-    use std::fs::File;
-    use std::io::Write;
+    use std::fs::{create_dir_all, File};
+    use std::io::{BufWriter, Write};
+    use std::path::Path;
 
-    let mut file = File::create(path)?;
-    // Header
-    // P2 indicates ASCII PGM
-    writeln!(file, "P2")?;
-    writeln!(file, "{} {}", width, height)?;
-    writeln!(file, "{}", maxval)?;
-
-    // Write pixels in row-major order as ASCII numbers. We'll write up to 17 values per line
-    // to keep lines reasonably sized.
-    let mut count_in_line = 0;
-    for (i, &v) in data.iter().take(width * height).enumerate() {
-        let val = v as u32;
-        write!(file, "{}", val)?;
-        count_in_line += 1;
-        if i + 1 < width * height {
-            if count_in_line >= 17 {
-                writeln!(file)?;
-                count_in_line = 0;
-            } else {
-                write!(file, " ")?;
-            }
+    // Ensure parent directory exists (if any)
+    if let Some(parent) = Path::new(path).parent() {
+        if !parent.as_os_str().is_empty() {
+            create_dir_all(parent)?;
         }
     }
-    writeln!(file)?;
+
+    let file = File::create(path)?;
+    let mut w = BufWriter::with_capacity(64 * 1024, file);
+
+    // Header (P2 = ASCII PGM)
+    writeln!(w, "P2")?;
+    writeln!(w, "{} {}", width, height)?;
+    writeln!(w, "{}", maxval)?;
+
+    // Format each row into a single String to minimize number of write calls.
+    // Pre-allocate a buffer large enough for a row: estimate up to 4 chars per pixel ("255 "),
+    // but cap at a reasonable size.
+    let mut row_buf = String::with_capacity(std::cmp::min(width * 4, 32_768));
+
+    for y in 0..height {
+        row_buf.clear();
+        let row_start = y * width;
+        for x in 0..width {
+            if x > 0 {
+                row_buf.push(' ');
+            }
+            let v = data[row_start + x] as u32;
+            // write! into String is relatively efficient and avoids per-pixel syscall
+            use std::fmt::Write as FmtWrite;
+            let _ = write!(row_buf, "{}", v);
+        }
+        row_buf.push('\n');
+        w.write_all(row_buf.as_bytes())?;
+    }
+
+    // Flush buffered writer
+    w.flush()?;
 
     Ok(())
 }
