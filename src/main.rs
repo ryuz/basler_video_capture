@@ -26,6 +26,13 @@ fn main() -> anyhow::Result<()> {
     };
 
     let window = create_window("image", Default::default())?;
+
+
+    let dumy_img: Vec<u8> = vec![0u8; width * height];
+    let image = ImageView::new(ImageInfo::mono8(width as u32, height as u32), &dumy_img);
+    window.set_image("image", image)?;
+
+
     for event in window.event_channel()? {
         if let event::WindowEvent::KeyboardInput(event) = event {
 //          println!("{:#?}", event);
