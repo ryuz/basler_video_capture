@@ -6,7 +6,7 @@
 
 This is a video capture program for testing 1000fps recording using Basler's acA640-750 camera.
 
-Although it may be possible to use the included pylonviewer, I was unsure how to record videos with it, so I created this simple program.
+It features real-time preview display and keyboard-controlled recording functionality.
 
 ## Operating Environment
 
@@ -46,6 +46,32 @@ cargo run --release
 
 This will build and run the program.
 
-To change settings, please modify the source code directly.
+## Usage
 
-Currently, as soon as you run the program, image capture will start automatically and the images will be saved.
+### Command-line Options
+
+```bash
+cargo run --release -- [OPTIONS]
+```
+
+Available options:
+- `-W, --width <WIDTH>`: Image width (default: 320)
+- `-H, --height <HEIGHT>`: Image height (default: 320)
+- `-r, --rec-frames <REC_FRAMES>`: Number of frames to record (default: 1000)
+- `-e, --exposure <EXPOSURE>`: Exposure time (default: 800.0)
+- `-f, --format <FORMAT>`: Pixel format (default: Mono10)
+
+### Controls
+
+When you run the program, a preview window will open displaying the real-time camera feed.
+
+- **R key**: Start recording. Captures the specified number of frames continuously and saves them to a timestamped directory
+- **ESC key**: Exit the program
+
+### Recorded Data
+
+Recorded images are saved in PGM (P2 ASCII) format in the `rec/YYYYMMDD_HHMMSS/` directory.
+
+File names follow the pattern `image_0000.pgm`, `image_0001.pgm`, etc.
+
+You can convert the PGM images to video format using video editing software if needed.
