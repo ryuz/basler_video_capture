@@ -63,53 +63,59 @@ fn main() -> anyhow::Result<()> {
     let image = ImageView::new(ImageInfo::mono8(width as u32, height as u32), &dumy_img);
     window.set_image("image", image)?;
 
-    for event in window.event_channel()? {
-        if let event::WindowEvent::KeyboardInput(event) = event {
-//          println!("{:#?}", event);
-            if event.input.key_code == Some(event::VirtualKeyCode::Escape) && event.input.state.is_pressed() {
-                break;
-            }
+    let event_cahnnel = window.event_channel()?;
+    loop {
+        match event_cahnnel.try_recv() {
+            Ok(event) => {
+//              println!("{:#?}", event);
+                if let event::WindowEvent::KeyboardInput(event) = event {
+                    if event.input.key_code == Some(event::VirtualKeyCode::Escape) && event.input.state.is_pressed() {
+                        break;
+                    }
+                    if event.input.key_code == Some(event::VirtualKeyCode::R) && event.input.state.is_pressed() {
+                        // 録画
+                        println!("Recording Start");
+                        let img_buf = grab_image(&camera, rec_frames, (width * height * pixel_bytes) as usize)?;
+                        println!("Recording End");
 
-            if event.input.key_code == Some(event::VirtualKeyCode::R) && event.input.state.is_pressed() {
-                // 録画
-                println!("Recording Start");
-                let img_buf = grab_image(&camera, rec_frames, (width * height * pixel_bytes) as usize)?;
-                println!("Recording End");
-
-                // Save images to timestamped directory
-                let now = chrono::Local::now();
-                let dir_name = now.format("rec/%Y%m%d_%H%M%S").to_string();
-                println!("Write files {}", dir_name);
-                std::fs::create_dir_all(&dir_name)?;
-                for img_count in 0..rec_frames {
-                    let filename = format!("{}/image_{:04}.pgm", dir_name, img_count);
-                    save_pgm_p2(&filename, width as usize, height as usize, pixel_bits, img_buf[img_count as usize].as_slice())?;
+                        // Save images to timestamped directory
+                        let now = chrono::Local::now();
+                        let dir_name = now.format("rec/%Y%m%d_%H%M%S").to_string();
+                        println!("Write files {}", dir_name);
+                        std::fs::create_dir_all(&dir_name)?;
+                        for img_count in 0..rec_frames {
+                            let filename = format!("{}/image_{:04}.pgm", dir_name, img_count);
+                            save_pgm_p2(&filename, width as usize, height as usize, pixel_bits, img_buf[img_count as usize].as_slice())?;
+                        }
+                        println!("Write files done.");
+                    }
                 }
-                println!("Write files done.");
-            }
-        }
-        std::thread::sleep(std::time::Duration::from_millis(10));
-        let img_buf = grab_image(&camera, 1, (width * height * pixel_bytes) as usize)?;
-        let mut view_buf: Vec<u8> = vec![0u8; width * height];
-        if pixel_bits == 10 {
-            // Convert Mono10 to Mono8 for display
-            for i in 0..(width * height) {
-                let byte_index = i * 2;
-                let low_byte = img_buf[0][byte_index] as u16;
-                let high_byte = img_buf[0][byte_index + 1] as u16;
-                let v10 = (high_byte << 8) | low_byte;
-                let v8 = (v10 >> 2) as u8; // 10bit to 8bit
-                view_buf[i] = v8;
-            }
-        } else {
-            view_buf.copy_from_slice(&img_buf[0]);
-        }
+            },
+            _ => {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                let img_buf = grab_image(&camera, 1, (width * height * pixel_bytes) as usize)?;
+                let mut view_buf: Vec<u8> = vec![0u8; width * height];
+                if pixel_bits == 10 {
+                    // Convert Mono10 to Mono8 for display
+                    for i in 0..(width * height) {
+                        let byte_index = i * 2;
+                        let low_byte = img_buf[0][byte_index] as u16;
+                        let high_byte = img_buf[0][byte_index + 1] as u16;
+                        let v10 = (high_byte << 8) | low_byte;
+                        let v8 = (v10 >> 2) as u8; // 10bit to 8bit
+                        view_buf[i] = v8;
+                    }
+                } else {
+                    view_buf.copy_from_slice(&img_buf[0]);
+                }
 
-        let image_view = ImageView::new(
-            ImageInfo::mono8(width as u32, height as u32),
-            &view_buf,
-        );
-        window.set_image("image", image_view)?;
+                let image_view = ImageView::new(
+                    ImageInfo::mono8(width as u32, height as u32),
+                    &view_buf,
+                );
+                window.set_image("image", image_view)?;
+            }
+        }
     }
 
     Ok(())
