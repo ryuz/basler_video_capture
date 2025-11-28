@@ -1,11 +1,35 @@
 use show_image::{event, ImageView, ImageInfo, create_window};
+use clap::Parser;
+
+/// Command-line options
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Image width
+    #[arg(short='W', long, default_value_t = 320)]
+    width: usize,
+
+    /// Image height
+    #[arg(short='H',long, default_value_t = 320)]
+    height: usize,
+
+    /// Number of frames to record
+    #[arg(short='r',long, default_value_t = 1000)]
+    rec_frames: usize,
+
+    /// Exposure time
+    #[arg(short='e', long, default_value_t = 800.0)]
+    exposure: f64,
+}
 
 #[show_image::main]
 fn main() -> anyhow::Result<()> {
 
-    let width = 320;
-    let height = 320;
-    let rec_frames = 1000;
+    let args = Args::parse();
+    let width : usize = args.width;
+    let height : usize = args.height;
+    let rec_frames : usize = args.rec_frames;
+    let exposure : f64 = args.exposure;
 
     let pylon = pylon_cxx::Pylon::new();
     let camera = pylon_cxx::TlFactory::instance(&pylon).create_first_device()?;
@@ -14,8 +38,9 @@ fn main() -> anyhow::Result<()> {
     camera.node_map()?.integer_node("Width")?.set_value(width as i64)?;
     camera.node_map()?.integer_node("Height")?.set_value(height as i64)?;
     camera.node_map()?.enum_node("PixelFormat")?.set_value("Mono8")?;
+//  camera.node_map()?.enum_node("PixelFormat")?.set_value("Mono10")?;
     camera.node_map()?.float_node("Gain")?.set_value(1.0)?;
-    camera.node_map()?.float_node("ExposureTime")?.set_value(700.0)?;   // 露光時間でフレームレートが変わる
+    camera.node_map()?.float_node("ExposureTime")?.set_value(exposure)?;   // 露光時間でフレームレートが変わる
 
     match camera.node_map()?.enum_node("PixelFormat") {
         Ok(node) => println!(
@@ -31,7 +56,6 @@ fn main() -> anyhow::Result<()> {
     let dumy_img: Vec<u8> = vec![0u8; width * height];
     let image = ImageView::new(ImageInfo::mono8(width as u32, height as u32), &dumy_img);
     window.set_image("image", image)?;
-
 
     for event in window.event_channel()? {
         if let event::WindowEvent::KeyboardInput(event) = event {
