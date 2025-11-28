@@ -20,6 +20,10 @@ struct Args {
     /// Exposure time
     #[arg(short='e', long, default_value_t = 800.0)]
     exposure: f64,
+
+    /// PixelFormat
+    #[arg(short='f', long, default_value_t = ("Mono10").to_string())]
+    format: String,
 }
 
 #[show_image::main]
@@ -30,6 +34,9 @@ fn main() -> anyhow::Result<()> {
     let height : usize = args.height;
     let rec_frames : usize = args.rec_frames;
     let exposure : f64 = args.exposure;
+    let format : String = args.format;
+    let pixel_bits = if format == "Mono8" {8} else {10};
+    let pixel_bytes = if format == "Mono8" {1} else {2};
 
     let pylon = pylon_cxx::Pylon::new();
     let camera = pylon_cxx::TlFactory::instance(&pylon).create_first_device()?;
@@ -37,8 +44,8 @@ fn main() -> anyhow::Result<()> {
     camera.open()?;
     camera.node_map()?.integer_node("Width")?.set_value(width as i64)?;
     camera.node_map()?.integer_node("Height")?.set_value(height as i64)?;
-    camera.node_map()?.enum_node("PixelFormat")?.set_value("Mono8")?;
-//  camera.node_map()?.enum_node("PixelFormat")?.set_value("Mono10")?;
+//  camera.node_map()?.enum_node("PixelFormat")?.set_value("Mono8")?;
+    camera.node_map()?.enum_node("PixelFormat")?.set_value(&format)?;
     camera.node_map()?.float_node("Gain")?.set_value(1.0)?;
     camera.node_map()?.float_node("ExposureTime")?.set_value(exposure)?;   // 露光時間でフレームレートが変わる
 
@@ -51,7 +58,6 @@ fn main() -> anyhow::Result<()> {
     };
 
     let window = create_window("image", Default::default())?;
-
 
     let dumy_img: Vec<u8> = vec![0u8; width * height];
     let image = ImageView::new(ImageInfo::mono8(width as u32, height as u32), &dumy_img);
@@ -67,7 +73,7 @@ fn main() -> anyhow::Result<()> {
             if event.input.key_code == Some(event::VirtualKeyCode::R) && event.input.state.is_pressed() {
                 // 録画
                 println!("Recording Start");
-                let img_buf = grab_image(&camera, rec_frames, (width * height) as usize)?;
+                let img_buf = grab_image(&camera, rec_frames, (width * height * pixel_bytes) as usize)?;
                 println!("Recording End");
 
                 // Save images to timestamped directory
@@ -77,16 +83,31 @@ fn main() -> anyhow::Result<()> {
                 std::fs::create_dir_all(&dir_name)?;
                 for img_count in 0..rec_frames {
                     let filename = format!("{}/image_{:04}.pgm", dir_name, img_count);
-                    save_pgm_p2(&filename, width as usize, height as usize, 255u32, img_buf[img_count as usize].as_slice())?;
+                    save_pgm_p2(&filename, width as usize, height as usize, pixel_bits, img_buf[img_count as usize].as_slice())?;
                 }
                 println!("Write files done.");
             }
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
-        let img_buf = grab_image(&camera, 1, (width * height) as usize)?;
+        let img_buf = grab_image(&camera, 1, (width * height * pixel_bytes) as usize)?;
+        let mut view_buf: Vec<u8> = vec![0u8; width * height];
+        if pixel_bits == 10 {
+            // Convert Mono10 to Mono8 for display
+            for i in 0..(width * height) {
+                let byte_index = i * 2;
+                let low_byte = img_buf[0][byte_index] as u16;
+                let high_byte = img_buf[0][byte_index + 1] as u16;
+                let v10 = (high_byte << 8) | low_byte;
+                let v8 = (v10 >> 2) as u8; // 10bit to 8bit
+                view_buf[i] = v8;
+            }
+        } else {
+            view_buf.copy_from_slice(&img_buf[0]);
+        }
+
         let image_view = ImageView::new(
             ImageInfo::mono8(width as u32, height as u32),
-            &img_buf[0],
+            &view_buf,
         );
         window.set_image("image", image_view)?;
     }
@@ -134,7 +155,7 @@ fn grab_image(camera : &pylon_cxx::InstantCamera, frames: usize, frame_size: usi
 
 
 // Save a PGM P2 (ASCII) file.
-fn save_pgm_p2(path: &str, width: usize, height: usize, maxval: u32, data: &[u8]) -> std::io::Result<()> {
+fn save_pgm_p2(path: &str, width: usize, height: usize, pixel_bits: usize, data: &[u8]) -> std::io::Result<()> {
     use std::fs::{create_dir_all, File};
     use std::io::{BufWriter, Write};
     use std::path::Path;
@@ -152,7 +173,7 @@ fn save_pgm_p2(path: &str, width: usize, height: usize, maxval: u32, data: &[u8]
     // Header (P2 = ASCII PGM)
     writeln!(w, "P2")?;
     writeln!(w, "{} {}", width, height)?;
-    writeln!(w, "{}", maxval)?;
+    writeln!(w, "{}", (1 << pixel_bits)-1)?;
 
     // Format each row into a single String to minimize number of write calls.
     // Pre-allocate a buffer large enough for a row: estimate up to 4 chars per pixel ("255 "),
@@ -166,8 +187,15 @@ fn save_pgm_p2(path: &str, width: usize, height: usize, maxval: u32, data: &[u8]
             if x > 0 {
                 row_buf.push(' ');
             }
-            let v = data[row_start + x] as u32;
-            // write! into String is relatively efficient and avoids per-pixel syscall
+            let v = if pixel_bits <= 8 {
+                data[row_start + x] as u32
+            } else {
+                let byte_index = (row_start + x) * 2;
+                let low_byte = data[byte_index] as u32;
+                let high_byte = data[byte_index + 1] as u32;
+                (high_byte << 8) | low_byte
+            };
+
             use std::fmt::Write as FmtWrite;
             let _ = write!(row_buf, "{}", v);
         }
