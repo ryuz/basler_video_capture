@@ -20,7 +20,7 @@ Busler社の[pylon Software Suite](https://www.baslerweb.com/ja-jp/software/pylo
 
 本プログラムは pylon 25.09.0 で動作確認しています。
 
-USB3 に相性があるようですので、ポートを変えたり、PCを変えたり、USBボードを用意したりして安定する環境を探してください。
+稀に USB3 に相性があるようですので、ポートを変えたり、PCを変えたり、USBボードを用意したりして安定する環境を探してください。
 
 Rust で pylon-cxx を利用していますが、Linux版では参照しているライブラリ名が古いようで下記の操作が必要でした。
 
